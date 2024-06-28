@@ -65,6 +65,10 @@ type Handler struct {
 	// the global or default storage configuration will be used.
 	StorageRaw json.RawMessage `json:"storage,omitempty" caddy:"namespace=caddy.storage inline_key=module"`
 
+  // LogKey, if true, will log the key used for rate limiting.
+  // Defaults to `false` because keys can contain sensitive information.
+  LogKey bool `json:"log_key,omitempty"`
+
 	rateLimits []*RateLimit
 	storage    certmagic.Storage
 	random     *weakrand.Rand
@@ -198,12 +202,21 @@ func (h *Handler) rateLimitExceeded(w http.ResponseWriter, r *http.Request, repl
 	if err != nil {
 		remoteIP = r.RemoteAddr // assume there was no port, I guess
 	}
-	h.logger.Info("rate limit exceeded",
-		zap.String("zone", zoneName),
-		zap.String("key", key),
-		zap.Duration("wait", wait),
-		zap.String("remote_ip", remoteIP),
-	)
+
+	if h.LogKey {
+    h.logger.Info("rate limit exceeded",
+      zap.String("zone", zoneName),
+      zap.String("key", key),
+      zap.Duration("wait", wait),
+      zap.String("remote_ip", remoteIP),
+    )
+  } else {
+    h.logger.Info("rate limit exceeded",
+      zap.String("zone", zoneName),
+      zap.Duration("wait", wait),
+      zap.String("remote_ip", remoteIP),
+    )
+  }
 
 	// make some information about this rate limit available
 	repl.Set("http.rate_limit.exceeded.name", zoneName)
